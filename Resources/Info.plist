@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>zh_CN</string>
+	<key>CFBundleExecutable</key>
+	<string>CodexBar</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.wangjiaxuan666.CodexBar</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>CodexBar</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.12</string>
+	<key>CFBundleVersion</key>
+	<string>13</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>11.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>用于从 Touch Bar 启动中文语音输入。</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>用于把你的语音转换为可输入到 Codex 的文字。</string>
+</dict>
+</plist>
