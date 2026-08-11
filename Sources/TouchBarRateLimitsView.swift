@@ -28,19 +28,19 @@ final class TouchBarRateLimitsView: NSView {
             fiveHourRow.updateLimit(
                 title: "5 小时",
                 meter: fiveHour,
-                usageText: state.tokenUsage?.yesterdayText ?? "昨日 --"
+                usageText: state.tokenUsage?.yesterdayText ?? "昨--"
             )
         } else if let resetCredits = state.resetCredits, resetCredits.availableCount > 0 {
             fiveHourRow.isHidden = false
             fiveHourRow.updateResetCredits(
                 resetCredits,
-                usageText: state.tokenUsage?.yesterdayText ?? "昨日 --"
+                usageText: state.tokenUsage?.yesterdayText ?? "昨--"
             )
         } else if state.lastUpdated != nil {
             fiveHourRow.isHidden = true
         } else {
             fiveHourRow.isHidden = false
-            fiveHourRow.updatePlaceholder(title: "5 小时", usageText: "昨日 --")
+            fiveHourRow.updatePlaceholder(title: "5 小时", usageText: "昨--")
         }
 
         if let weekly = state.weekly {
@@ -48,13 +48,13 @@ final class TouchBarRateLimitsView: NSView {
             weeklyRow.updateLimit(
                 title: "周限额",
                 meter: weekly,
-                usageText: state.tokenUsage?.cumulativeText ?? "累计 --"
+                usageText: state.tokenUsage?.cumulativeText ?? "总--"
             )
         } else if state.lastUpdated != nil {
             weeklyRow.isHidden = true
         } else {
             weeklyRow.isHidden = false
-            weeklyRow.updatePlaceholder(title: "周限额", usageText: "累计 --")
+            weeklyRow.updatePlaceholder(title: "周限额", usageText: "总--")
         }
     }
 
@@ -350,7 +350,7 @@ private final class TouchBarLimitRow: NSView {
             creditsIndicatorLabel.trailingAnchor.constraint(lessThanOrEqualTo: statusContainer.trailingAnchor),
             creditsIndicatorLabel.centerYAnchor.constraint(equalTo: statusContainer.centerYAnchor),
             remainingLabel.widthAnchor.constraint(equalToConstant: 66),
-            resetLabel.widthAnchor.constraint(equalToConstant: 118),
+            resetLabel.widthAnchor.constraint(equalToConstant: 145),
             separatorLabel.widthAnchor.constraint(equalToConstant: 7),
             usageLabel.widthAnchor.constraint(equalToConstant: 68),
             row.leadingAnchor.constraint(equalTo: leadingAnchor),

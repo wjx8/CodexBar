@@ -132,8 +132,8 @@ struct ResetCreditSummary: Equatable {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.timeZone = .current
-        formatter.dateFormat = "MM月dd日"
-        return "\(formatter.string(from: earliestExpirationDate)) 到期"
+        formatter.dateFormat = "MM月dd日 HH:mm"
+        return "\(formatter.string(from: earliestExpirationDate))到期"
     }
 
     init(response: RateLimitResetCreditsResponse) {
@@ -156,21 +156,21 @@ struct TokenUsageSummary: Equatable {
     let cumulativeTokens: Int
 
     var yesterdayText: String {
-        "昨日 \(Self.formatAsWan(yesterdayTokens))"
+        "昨\(Self.formatAsWan(yesterdayTokens))"
     }
 
     var cumulativeText: String {
-        "累计 \(Self.formatAsYi(cumulativeTokens))"
+        "总\(Self.formatAsYi(cumulativeTokens))"
     }
 
     private static func formatAsWan(_ tokens: Int) -> String {
         let value = Double(tokens) / 10_000
-        return "\(formatted(value)) 万"
+        return "\(formatted(value))万"
     }
 
     private static func formatAsYi(_ tokens: Int) -> String {
         let value = Double(tokens) / 100_000_000
-        return "\(formatted(value)) 亿"
+        return "\(formatted(value))亿"
     }
 
     private static func formatted(_ value: Double) -> String {
