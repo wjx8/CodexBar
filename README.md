@@ -2,7 +2,7 @@
 
 CodexBar 是一个 macOS 菜单栏 + Touch Bar 小工具，用本机 Codex app-server 读取 Codex 额度，并把额度窗口或可用重置次数持续显示在 Touch Bar 上。
 
-项目维护者：[wangjiaxuan666](https://github.com/wangjiaxuan666)
+项目维护者：[wjx8](https://github.com/wjx8)
 
 它不抓网页，也不需要你填写 API Key。应用会自动查找 ChatGPT 合并版或旧版 Codex 中的本机 `codex`：
 
@@ -62,7 +62,7 @@ Touch Bar 不是必需硬件。
 Touch Bar 内容包括：
 
 - Codex 官方图标。
-- `5 小时` 额度分段电量条；窗口不存在时改为显示可用重置次数和最早到期日期。
+- `5 小时` 额度分段电量条；窗口不存在时改为显示可用重置次数和最早到期日期、时间。
 - `周限额` 分段电量条。
 - 剩余百分比。
 - 重置时间。
@@ -161,6 +161,7 @@ scripts/make-app-icon.py
 - 移除 Touch Bar 内容易误触并退出整个程序的 `×` 按钮。
 - 放大额度文字和电量条，并将语音按钮改为 Siri 风格的彩色圆形波形图标。
 - 菜单栏新增“重新加载 Touch Bar”，可在界面被系统关闭后快速恢复。
+- 精简 Touch Bar 行末 token 用量文字为“昨 / 总”，避免挤占右侧语音按钮空间。
 
 ### 0.1.11 - 2026-08-10
 
