@@ -75,6 +75,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
+        // 复用同一 NSMenu 实例时，系统会保留上次的滚动位置：再次打开菜单会出现
+        // ⌃ 滚动箭头、首项被菜单栏遮住、各行坐标整体上移一格（容易误点相邻项）。
+        // 显示前原地重建菜单项，重置滚动状态。
+        menu.removeAllItems()
+        buildMenuItems(menu)
+
         // 把菜单最小宽度撑到与状态项等宽：系统将菜单左对齐到状态项，
         // 等宽时即视觉居中，与显示哪几段余额无关。
         if let width = statusItem.button?.window?.frame.width, width > 0 {
@@ -85,7 +91,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
     private func makeStatusMenu() -> NSMenu {
         let menu = NSMenu()
         menu.delegate = self
+        buildMenuItems(menu)
+        return menu
+    }
 
+    private func buildMenuItems(_ menu: NSMenu) {
         let visibilityItem = NSMenuItem(
             title: "隐藏 Touch Bar",
             action: #selector(toggleTouchBar(_:)),
@@ -147,7 +157,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
         )
         quitItem.target = self
         menu.addItem(quitItem)
-        return menu
     }
 
     private func configureLifecycleMonitor() {

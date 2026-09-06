@@ -16,7 +16,7 @@ final class SettingsWindowController: NSWindowController {
 
     private convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 430, height: 262),
+            contentRect: NSRect(x: 0, y: 0, width: 470, height: 262),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -61,8 +61,8 @@ final class SettingsWindowController: NSWindowController {
         let rows = NSStackView(views: [
             row(title: "DeepSeek Key", control: deepSeekField, hint: deepSeekHint),
             row(title: "GLM Key", control: glmField, hint: glmHint),
-            row(title: "额度刷新", control: quotaIntervalPopup, hint: nil),
-            row(title: "余额刷新", control: balanceIntervalPopup, hint: nil),
+            row(title: "Codex额度刷新间隔", control: quotaIntervalPopup, hint: nil),
+            row(title: "DS/GLM余额刷新间隔", control: balanceIntervalPopup, hint: nil),
         ])
         rows.orientation = .vertical
         rows.alignment = .leading
@@ -137,8 +137,8 @@ final class SettingsWindowController: NSWindowController {
         wrapper.alignment = .leading
         wrapper.spacing = 3
 
-        // 固定标签宽度，让各行的控件左缘对齐。
-        label.widthAnchor.constraint(equalToConstant: 96).isActive = true
+        // 固定标签宽度（容纳最长的「Codex额度刷新间隔」），让各行的控件左缘对齐。
+        label.widthAnchor.constraint(equalToConstant: 130).isActive = true
         return wrapper
     }
 
