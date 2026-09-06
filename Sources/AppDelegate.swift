@@ -1,6 +1,6 @@
 import AppKit
 
-final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate, NSMenuDelegate {
     /// 菜单栏各分段的自定义显示开关，持久化在 UserDefaults；未设置时默认全部显示。
     private enum MenuBarSection {
         static let codex = "menubar.showCodex"
@@ -62,38 +62,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
         renderStatusItem()
     }
 
-    private lazy var statusMenu = makeStatusMenu()
-
     private func configureStatusItem() {
         guard let button = statusItem.button else {
             return
         }
 
         button.toolTip = "余额"
-        // 不用 statusItem.menu 的系统锚定（左对齐、宽度变化时偏移），
-        // 改为手动弹出，让菜单水平中心与状态项中心对齐。
-        button.action = #selector(statusItemClicked(_:))
-        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        // 系统原生展示：外观、贴齐菜单栏、滚动行为全部由系统保证。
+        statusItem.menu = makeStatusMenu()
     }
 
-    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
-        guard let button = statusItem.button else {
-            return
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        // 把菜单最小宽度撑到与状态项等宽：系统将菜单左对齐到状态项，
+        // 等宽时即视觉居中，与显示哪几段余额无关。
+        if let width = statusItem.button?.window?.frame.width, width > 0 {
+            menu.minimumWidth = width
         }
-
-        // popUp 弹出的菜单会继承状态项按钮（跟随菜单栏壁纸色调）的外观，
-        // 浅色系统下也会渲染成深色；显式跟随应用/系统外观，深浅模式都正确。
-        statusMenu.appearance = NSApp.effectiveAppearance
-        let xOffset = (button.bounds.width - statusMenu.size.width) / 2
-        statusMenu.popUp(
-            positioning: nil,
-            at: NSPoint(x: xOffset, y: button.bounds.maxY),
-            in: button
-        )
     }
 
     private func makeStatusMenu() -> NSMenu {
         let menu = NSMenu()
+        menu.delegate = self
 
         let visibilityItem = NSMenuItem(
             title: "隐藏 Touch Bar",
