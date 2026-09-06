@@ -30,6 +30,7 @@ final class SettingsWindowController: NSWindowController {
         reloadFields()
         NSApp.activate(ignoringOtherApps: true)
         showWindow(nil)
+        window?.center()
         window?.makeKeyAndOrderFront(nil)
     }
 
@@ -42,6 +43,15 @@ final class SettingsWindowController: NSWindowController {
 
         deepSeekField.placeholderString = "sk-..."
         glmField.placeholderString = "粘贴 API Key"
+
+        // 长密钥在框内滚动显示，禁止圆点换行。
+        for field in [deepSeekField, glmField] {
+            if let cell = field.cell as? NSTextFieldCell {
+                cell.wraps = false
+                cell.isScrollable = true
+                cell.lineBreakMode = .byTruncatingTail
+            }
+        }
 
         let rows = NSStackView(views: [
             row(title: "DeepSeek Key", field: deepSeekField, hint: deepSeekHint),
@@ -122,7 +132,7 @@ final class SettingsWindowController: NSWindowController {
         let deepSeek = deepSeekField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let glm = glmField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         APIKeyStore.save(deepSeek: deepSeek, glm: glm)
-        refreshHints()
         onSaved?()
+        window?.performClose(nil)
     }
 }

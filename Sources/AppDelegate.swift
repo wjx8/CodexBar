@@ -62,13 +62,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
         renderStatusItem()
     }
 
+    private lazy var statusMenu = makeStatusMenu()
+
     private func configureStatusItem() {
         guard let button = statusItem.button else {
             return
         }
 
         button.toolTip = "余额"
-        statusItem.menu = makeStatusMenu()
+        // 不用 statusItem.menu 的系统锚定（左对齐、宽度变化时偏移），
+        // 改为手动弹出，让菜单水平中心与状态项中心对齐。
+        button.action = #selector(statusItemClicked(_:))
+        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+    }
+
+    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
+        guard let button = statusItem.button else {
+            return
+        }
+
+        let xOffset = (button.bounds.width - statusMenu.size.width) / 2
+        statusMenu.popUp(
+            positioning: nil,
+            at: NSPoint(x: xOffset, y: button.bounds.maxY + 3),
+            in: button
+        )
     }
 
     private func makeStatusMenu() -> NSMenu {
