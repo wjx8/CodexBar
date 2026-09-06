@@ -35,7 +35,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
             self?.renderStatusItem()
         }
         SettingsWindowController.shared.onSaved = { [weak self] in
-            self?.remoteBalances.refresh()
+            guard let self else { return }
+            store.applySettings()
+            remoteBalances.applySettings()
         }
         remoteBalances.start()
         configureStatusItem()

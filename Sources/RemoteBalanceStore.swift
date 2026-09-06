@@ -56,10 +56,22 @@ final class RemoteBalanceStore {
         }
         isStarted = true
         refresh()
-        // 余额变化频率低，10 分钟轮询一次即可；菜单"刷新额度"会立即触发 refresh()。
-        timer = Timer.scheduledTimer(withTimeInterval: 600, repeats: true) { [weak self] _ in
+        // 余额变化频率低，按用户设置的档位轮询；菜单"刷新额度"会立即触发 refresh()。
+        timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(AppSettings.balanceInterval), repeats: true) { [weak self] _ in
             self?.refresh()
         }
+    }
+
+    /// 设置窗口保存后调用：按新间隔重建定时器并立即刷新一次。
+    func applySettings() {
+        guard isStarted else {
+            return
+        }
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(AppSettings.balanceInterval), repeats: true) { [weak self] _ in
+            self?.refresh()
+        }
+        refresh()
     }
 
     func stop() {

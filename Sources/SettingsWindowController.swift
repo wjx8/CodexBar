@@ -11,10 +11,12 @@ final class SettingsWindowController: NSWindowController {
     private let glmField = NSSecureTextField(frame: .zero)
     private let deepSeekHint = NSTextField(labelWithString: "")
     private let glmHint = NSTextField(labelWithString: "")
+    private let quotaIntervalPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let balanceIntervalPopup = NSPopUpButton(frame: .zero, pullsDown: false)
 
     private convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 430, height: 206),
+            contentRect: NSRect(x: 0, y: 0, width: 430, height: 262),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -53,9 +55,14 @@ final class SettingsWindowController: NSWindowController {
             }
         }
 
+        setupIntervalPopup(quotaIntervalPopup, choices: AppSettings.quotaChoices, current: AppSettings.quotaInterval)
+        setupIntervalPopup(balanceIntervalPopup, choices: AppSettings.balanceChoices, current: AppSettings.balanceInterval)
+
         let rows = NSStackView(views: [
-            row(title: "DeepSeek Key", field: deepSeekField, hint: deepSeekHint),
-            row(title: "GLM Key", field: glmField, hint: glmHint),
+            row(title: "DeepSeek Key", control: deepSeekField, hint: deepSeekHint),
+            row(title: "GLM Key", control: glmField, hint: glmHint),
+            row(title: "额度刷新", control: quotaIntervalPopup, hint: nil),
+            row(title: "余额刷新", control: balanceIntervalPopup, hint: nil),
         ])
         rows.orientation = .vertical
         rows.alignment = .leading
@@ -93,24 +100,44 @@ final class SettingsWindowController: NSWindowController {
         ])
     }
 
-    private func row(title: String, field: NSTextField, hint: NSTextField) -> NSView {
+    private func setupIntervalPopup(_ popup: NSPopUpButton, choices: [Int], current: Int) {
+        popup.removeAllItems()
+        var entries = choices.map { (title: AppSettings.intervalTitle($0), seconds: $0) }
+        if !choices.contains(current) {
+            // 用户曾用 defaults write 写过非预设值：追加回显，不吞掉手动配置。
+            entries.append((AppSettings.intervalTitle(current), current))
+        }
+        for entry in entries.sorted(by: { $0.seconds < $1.seconds }) {
+            popup.addItem(withTitle: entry.title)
+            popup.lastItem?.representedObject = entry.seconds
+        }
+        if let index = popup.itemArray.firstIndex(where: { ($0.representedObject as? Int) == current }) {
+            popup.selectItem(at: index)
+        }
+    }
+
+    private func row(title: String, control: NSView, hint: NSTextField?) -> NSView {
         let label = NSTextField(labelWithString: title)
         label.translatesAutoresizingMaskIntoConstraints = false
 
-        let fieldRow = NSStackView(views: [label, field])
+        let fieldRow = NSStackView(views: [label, control])
         fieldRow.orientation = .horizontal
         fieldRow.alignment = .centerY
         fieldRow.spacing = 8
 
-        hint.font = .systemFont(ofSize: 11)
-        hint.textColor = .secondaryLabelColor
+        var views: [NSView] = [fieldRow]
+        if let hint {
+            hint.font = .systemFont(ofSize: 11)
+            hint.textColor = .secondaryLabelColor
+            views.append(hint)
+        }
 
-        let wrapper = NSStackView(views: [fieldRow, hint])
+        let wrapper = NSStackView(views: views)
         wrapper.orientation = .vertical
         wrapper.alignment = .leading
         wrapper.spacing = 3
 
-        // 固定标签宽度，让两个输入框左缘对齐。
+        // 固定标签宽度，让各行的控件左缘对齐。
         label.widthAnchor.constraint(equalToConstant: 96).isActive = true
         return wrapper
     }
@@ -121,6 +148,18 @@ final class SettingsWindowController: NSWindowController {
         deepSeekField.stringValue = APIKeyStore.deepSeek
         glmField.stringValue = APIKeyStore.glm
         refreshHints()
+        reloadIntervalPopups()
+    }
+
+    private func reloadIntervalPopups() {
+        let quota = AppSettings.quotaInterval
+        let balance = AppSettings.balanceInterval
+        if let index = quotaIntervalPopup.itemArray.firstIndex(where: { ($0.representedObject as? Int) == quota }) {
+            quotaIntervalPopup.selectItem(at: index)
+        }
+        if let index = balanceIntervalPopup.itemArray.firstIndex(where: { ($0.representedObject as? Int) == balance }) {
+            balanceIntervalPopup.selectItem(at: index)
+        }
     }
 
     private func refreshHints() {
@@ -132,6 +171,12 @@ final class SettingsWindowController: NSWindowController {
         let deepSeek = deepSeekField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let glm = glmField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         APIKeyStore.save(deepSeek: deepSeek, glm: glm)
+        if let quota = quotaIntervalPopup.selectedItem?.representedObject as? Int {
+            AppSettings.saveQuotaInterval(quota)
+        }
+        if let balance = balanceIntervalPopup.selectedItem?.representedObject as? Int {
+            AppSettings.saveBalanceInterval(balance)
+        }
         onSaved?()
         window?.performClose(nil)
     }
