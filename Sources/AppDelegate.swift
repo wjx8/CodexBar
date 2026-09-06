@@ -81,10 +81,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
             return
         }
 
+        // popUp 弹出的菜单会继承状态项按钮（跟随菜单栏壁纸色调）的外观，
+        // 浅色系统下也会渲染成深色；显式跟随应用/系统外观，深浅模式都正确。
+        statusMenu.appearance = NSApp.effectiveAppearance
         let xOffset = (button.bounds.width - statusMenu.size.width) / 2
         statusMenu.popUp(
             positioning: nil,
-            at: NSPoint(x: xOffset, y: button.bounds.maxY + 3),
+            at: NSPoint(x: xOffset, y: button.bounds.maxY),
             in: button
         )
     }
