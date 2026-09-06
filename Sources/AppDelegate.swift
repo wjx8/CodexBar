@@ -1,8 +1,17 @@
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate {
-    private let statusItem = NSStatusBar.system.statusItem(withLength: 118)
+    /// 菜单栏各分段的自定义显示开关，持久化在 UserDefaults；未设置时默认全部显示。
+    private enum MenuBarSection {
+        static let codex = "menubar.showCodex"
+        static let deepSeek = "menubar.showDeepSeek"
+        static let glm = "menubar.showGLM"
+    }
+
+    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let store = RateLimitStore()
+    private let remoteBalances = RemoteBalanceStore()
+    private var lastQuotaState = RateLimitDisplayState.initial
     private let lifecycleMonitor = CodexLifecycleMonitor()
     private var touchBarVisibilityMenuItem: NSMenuItem?
     private lazy var touchBarController = CompactHUDViewController(
@@ -22,6 +31,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
         CodexAutoLauncher.clearManualQuitLock()
 
         store.delegate = self
+        remoteBalances.onUpdate = { [weak self] _ in
+            self?.renderStatusItem()
+        }
+        SettingsWindowController.shared.onSaved = { [weak self] in
+            self?.remoteBalances.refresh()
+        }
+        remoteBalances.start()
         configureStatusItem()
         configureLifecycleMonitor()
         lifecycleMonitor.start()
@@ -29,7 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
         if lifecycleMonitor.codexIsRunningNow() {
             codexDidStart()
         } else {
-            updateStatusTitle(with: .initial)
+            renderStatusItem()
         }
     }
 
@@ -37,11 +53,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
         touchBarController.hideSystemTouchBar()
         lifecycleMonitor.stop()
         store.stop()
+        remoteBalances.stop()
     }
 
     func rateLimitStore(_ store: RateLimitStore, didUpdate state: RateLimitDisplayState) {
-        updateStatusTitle(with: state)
+        lastQuotaState = state
         touchBarController.update(with: state)
+        renderStatusItem()
     }
 
     private func configureStatusItem() {
@@ -49,13 +67,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
             return
         }
 
-        button.image = NSImage(
-            systemSymbolName: "bolt.horizontal.circle.fill",
-            accessibilityDescription: "Codex"
-        )
-        button.imagePosition = .imageLeft
-        button.title = " --"
-        button.toolTip = "Codex 额度"
+        button.toolTip = "余额"
         statusItem.menu = makeStatusMenu()
     }
 
@@ -78,6 +90,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
         )
         reloadTouchBarItem.target = self
         menu.addItem(reloadTouchBarItem)
+        menu.addItem(.separator())
+
+        // 菜单栏分段显示开关：勾选即显示（HIG 标准的 checkmark 菜单项）。
+        let sectionItems: [(key: String, title: String)] = [
+            (MenuBarSection.codex, "菜单栏显示 Codex 用量"),
+            (MenuBarSection.deepSeek, "菜单栏显示 DS 余额"),
+            (MenuBarSection.glm, "菜单栏显示 GLM 余额"),
+        ]
+        for section in sectionItems {
+            let item = NSMenuItem(
+                title: section.title,
+                action: #selector(toggleMenuBarSection(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = section.key
+            item.state = isSectionVisible(section.key) ? .on : .off
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
 
         let refreshItem = NSMenuItem(
             title: "刷新额度",
@@ -86,6 +118,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
         )
         refreshItem.target = self
         menu.addItem(refreshItem)
+
+        let settingsItem = NSMenuItem(
+            title: "设置…",
+            action: #selector(openSettings(_:)),
+            keyEquivalent: ","
+        )
+        settingsItem.target = self
+        menu.addItem(settingsItem)
         menu.addItem(.separator())
 
         let quitItem = NSMenuItem(
@@ -107,36 +147,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
         }
     }
 
-    private func updateStatusTitle(with state: RateLimitDisplayState) {
+    private func isSectionVisible(_ key: String) -> Bool {
+        let defaults = UserDefaults.standard
+        return defaults.object(forKey: key) == nil ? true : defaults.bool(forKey: key)
+    }
+
+    @objc private func toggleMenuBarSection(_ sender: NSMenuItem) {
+        guard let key = sender.representedObject as? String else {
+            return
+        }
+
+        let newValue = !isSectionVisible(key)
+        UserDefaults.standard.set(newValue, forKey: key)
+        sender.state = newValue ? .on : .off
+        renderStatusItem()
+    }
+
+    private func renderStatusItem() {
         guard let button = statusItem.button else {
             return
         }
 
+        let state = lastQuotaState
         var titleParts: [String] = []
         var tooltipParts: [String] = []
 
-        if let fiveHour = state.fiveHour {
-            titleParts.append("\(fiveHour.shortTitle) \(fiveHour.remainingText)")
-            tooltipParts.append("5 小时剩余 \(fiveHour.remainingText)")
-        } else if let resetCredits = state.resetCredits, resetCredits.availableCount > 0 {
-            titleParts.append("重置\(resetCredits.availableCount)")
-            tooltipParts.append("可重置 \(resetCredits.availableCount) 次，\(resetCredits.expirationText)")
+        if isSectionVisible(MenuBarSection.codex) {
+            if let fiveHour = state.fiveHour {
+                titleParts.append("\(fiveHour.shortTitle) \(fiveHour.remainingText)")
+                tooltipParts.append("Codex 5 小时剩余 \(fiveHour.remainingText)")
+            } else if let resetCredits = state.resetCredits, resetCredits.availableCount > 0 {
+                titleParts.append("重置\(resetCredits.availableCount)")
+                tooltipParts.append("Codex 可重置 \(resetCredits.availableCount) 次，\(resetCredits.expirationText)")
+            }
+
+            if let weekly = state.weekly {
+                titleParts.append("\(weekly.shortTitle) \(weekly.remainingText)")
+                tooltipParts.append("Codex 周限额剩余 \(weekly.remainingText)")
+            }
+
+            if state.isRefreshing && state.fiveHour == nil && state.weekly == nil {
+                titleParts.insert("...", at: 0)
+            }
         }
 
-        if let weekly = state.weekly {
-            titleParts.append("\(weekly.shortTitle) \(weekly.remainingText)")
-            tooltipParts.append("周限额剩余 \(weekly.remainingText)")
+        if isSectionVisible(MenuBarSection.deepSeek) {
+            titleParts.append(remoteBalances.display.deepSeekText)
+            tooltipParts.append("DeepSeek \(remoteBalances.display.deepSeekText)")
         }
 
-        if !titleParts.isEmpty {
-            button.title = " \(titleParts.joined(separator: "  "))"
-            button.toolTip = "Codex 额度：\(tooltipParts.joined(separator: "，"))"
-        } else if state.isRefreshing {
-            button.title = " ..."
-            button.toolTip = "Codex 额度：正在刷新"
+        if isSectionVisible(MenuBarSection.glm) {
+            titleParts.append(remoteBalances.display.glmText)
+            tooltipParts.append("GLM \(remoteBalances.display.glmText)")
+        }
+
+        if titleParts.isEmpty {
+            button.title = "--"
+            button.toolTip = "CodexBar"
         } else {
-            button.title = " --"
-            button.toolTip = state.errorMessage ?? "Codex 额度"
+            button.title = titleParts.joined(separator: " ")
+            button.toolTip = tooltipParts.joined(separator: "，")
+                + (isSectionVisible(MenuBarSection.codex) ? (state.errorMessage.map { "，Codex：\($0)" } ?? "") : "")
         }
     }
 
@@ -154,6 +225,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
 
     private func refreshQuotaNow() {
         store.start()
+        remoteBalances.refresh()
     }
 
     @objc private func toggleTouchBar(_ sender: AnyObject?) {
@@ -173,6 +245,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
 
     @objc private func refreshQuotaFromMenu(_ sender: AnyObject?) {
         refreshQuotaNow()
+    }
+
+    @objc private func openSettings(_ sender: AnyObject?) {
+        SettingsWindowController.shared.showSettings()
     }
 
     @objc private func reloadTouchBarFromMenu(_ sender: AnyObject?) {
@@ -199,6 +275,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
         touchBarController.hideSystemTouchBar()
         lifecycleMonitor.stop()
         store.stop()
+        remoteBalances.stop()
         NSApp.terminate(nil)
     }
 }
