@@ -78,9 +78,18 @@ final class RateLimitStore {
         }
     }
 
+    /// 设置窗口保存后调用：按新间隔重建定时器并立即刷新一次。
+    func applySettings() {
+        guard isStarted else {
+            return
+        }
+        startTimer()
+        refresh()
+    }
+
     private func startTimer() {
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(AppSettings.quotaInterval), repeats: true) { [weak self] _ in
             self?.refresh()
         }
     }
