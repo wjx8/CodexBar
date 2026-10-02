@@ -2,6 +2,7 @@ import Foundation
 
 enum CodexAppServerError: LocalizedError {
     case processUnavailable
+    case requestTimedOut
     case malformedResponse
     case serverError(String)
     case missingResult
@@ -9,7 +10,9 @@ enum CodexAppServerError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .processUnavailable:
-            return "Codex app-server is not running."
+            return "未找到或无法启动 Codex app-server，请检查 ChatGPT / Codex 安装。"
+        case .requestTimedOut:
+            return "Codex app-server 读取超时，将在下次刷新时重试。"
         case .malformedResponse:
             return "Codex app-server returned an unexpected response."
         case .serverError(let message):
@@ -23,11 +26,12 @@ enum CodexAppServerError: LocalizedError {
 final class CodexAppServerClient {
     typealias JSONDictionary = [String: Any]
 
-    private let codexCandidates = [
-        "/Applications/ChatGPT.app/Contents/Resources/codex",
-        "/Applications/Codex.app/Contents/Resources/codex",
-        "/Applications/GPT.app/Contents/Resources/codex"
-    ].map(URL.init(fileURLWithPath:))
+    private let codexCandidates = ["ChatGPT", "Codex", "GPT"].flatMap { host in
+        [
+            "/Applications/\(host).app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+            "/Applications/\(host).app/Contents/Resources/codex"
+        ].map(URL.init(fileURLWithPath:))
+    }
     private let queue = DispatchQueue(label: "CodexBar.CodexAppServerClient")
 
     private var process: Process?
@@ -66,10 +70,12 @@ final class CodexAppServerClient {
             self.errorPipe?.fileHandleForReading.readabilityHandler = nil
             self.inputPipe?.fileHandleForWriting.closeFile()
             if self.process?.isRunning == true {
+                self.process?.terminationHandler = nil
                 self.process?.terminate()
             }
             self.process = nil
-            self.pendingResponses.removeAll()
+            self.outputBuffer.removeAll()
+            self.failPendingResponses(CodexAppServerError.processUnavailable)
         }
     }
 
@@ -125,12 +131,14 @@ final class CodexAppServerClient {
             _ = handle.availableData
         }
 
-        process.terminationHandler = { [weak self] _ in
+        process.terminationHandler = { [weak self] terminatedProcess in
             self?.queue.async {
-                self?.failPendingResponses(CodexAppServerError.processUnavailable)
+                guard let self, self.process === terminatedProcess else { return }
+                self.failPendingResponses(CodexAppServerError.processUnavailable)
             }
         }
 
+        outputBuffer.removeAll()
         try process.run()
 
         self.process = process
@@ -159,7 +167,24 @@ final class CodexAppServerClient {
             DispatchQueue.main.async {
                 switch result {
                 case .success:
-                    completion(.success(()))
+                    self.queue.async {
+                        do {
+                            let notification = try JSONSerialization.data(withJSONObject: [
+                                "method": "initialized",
+                                "params": [:]
+                            ] as JSONDictionary)
+                            guard let writer = self.inputPipe?.fileHandleForWriting,
+                                  self.process?.isRunning == true else {
+                                throw CodexAppServerError.processUnavailable
+                            }
+                            var framed = notification
+                            framed.append(0x0A)
+                            writer.write(framed)
+                            DispatchQueue.main.async { completion(.success(())) }
+                        } catch {
+                            DispatchQueue.main.async { completion(.failure(error)) }
+                        }
+                    }
                 case .failure(let error):
                     completion(.failure(error))
                 }
@@ -182,6 +207,13 @@ final class CodexAppServerClient {
                 DispatchQueue.main.async {
                     completion(result)
                 }
+            }
+
+            self.queue.asyncAfter(deadline: .now() + 30) {
+                guard let completion = self.pendingResponses.removeValue(forKey: requestId) else { return }
+                completion(.failure(CodexAppServerError.requestTimedOut))
+                // An unresponsive server must be relaunched on the next refresh.
+                self.process?.terminate()
             }
 
             var payload: JSONDictionary = [

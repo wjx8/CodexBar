@@ -54,6 +54,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, RateLimitStoreDelegate
             accessibilityDescription: "Codex"
         )
         button.imagePosition = .imageLeft
+        button.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        button.cell?.wraps = false
+        button.cell?.usesSingleLineMode = true
         button.title = " --"
         button.toolTip = "Codex 额度"
         statusItem.menu = makeStatusMenu()

@@ -26,19 +26,8 @@ final class RateLimitStore {
             self?.refresh()
         }
 
-        client.start { [weak self] result in
-            guard let self else {
-                return
-            }
-
-            switch result {
-            case .success:
-                self.refresh()
-                self.startTimer()
-            case .failure(let error):
-                self.publishError(error.localizedDescription)
-            }
-        }
+        startTimer()
+        refresh()
     }
 
     func stop() {
@@ -60,20 +49,23 @@ final class RateLimitStore {
         state.errorMessage = nil
         publish()
 
-        client.readRateLimits { [weak self] result in
-            guard let self else {
-                return
-            }
-
-            self.refreshInFlight = false
-
+        client.start { [weak self] result in
+            guard let self, self.isStarted else { return }
             switch result {
-            case .success(let response):
-                self.apply(response)
+            case .success:
+                self.client.readRateLimits { [weak self] result in
+                    guard let self, self.isStarted else { return }
+                    self.refreshInFlight = false
+                    switch result {
+                    case .success(let response):
+                        self.apply(response)
+                    case .failure(let error):
+                        self.publishError(error.localizedDescription)
+                    }
+                }
             case .failure(let error):
-                self.state.isRefreshing = false
-                self.state.errorMessage = error.localizedDescription
-                self.publish()
+                self.refreshInFlight = false
+                self.publishError(error.localizedDescription)
             }
         }
     }

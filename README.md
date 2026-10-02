@@ -7,6 +7,8 @@ CodexBar 是一个 macOS 菜单栏 + Touch Bar 小工具，用本机 Codex app-s
 它不抓网页，也不需要你填写 API Key。应用会自动查找 ChatGPT 合并版或旧版 Codex 中的本机 `codex`：
 
 ```bash
+/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex app-server --listen stdio://
+# 或合并版旧路径
 /Applications/ChatGPT.app/Contents/Resources/codex app-server --listen stdio://
 # 或旧版
 /Applications/Codex.app/Contents/Resources/codex app-server --listen stdio://
@@ -29,7 +31,7 @@ CodexBar 基于 Jack Chen 的开源项目 [TouchBarCodexToken](https://github.co
 - Touch Bar 语音输入：点击 `🎙 语音` 开始中文识别，第二次点击后直接输入到当前 Codex 文本框。
 - 同步状态：菜单栏和 Touch Bar 使用同一份额度状态。
 - 自动联动 Codex：检测到 ChatGPT 合并版或旧版 Codex 启动后自动运行，宿主应用退出后自动退出。
-- 刷新保护：刷新失败时保留旧数据，不清空已有额度。
+- 刷新保护：刷新失败时保留旧数据，不清空已有额度；启动失败或 app-server 退出后，下次刷新会重新连接。
 - 本地优先：只调用本机 Codex app-server，不保存账号、密钥或授权码。
 
 ## 兼容性
